@@ -1,64 +1,79 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Play a fun memory card matching game and test your memory.">
-  <title>Memory Match | Brain Game</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#101d40" />
+  <title>Memory Match Game</title>
+  <link rel="stylesheet" href="style.css" />
   <script src="script.js" defer></script>
 </head>
 <body>
   <main class="game-container">
+
     <header class="game-header">
-      <p class="eyebrow">BRAIN TRAINING</p>
-      <h1>Memory Match</h1>
-      <p class="subtitle">Find all 8 matching pairs!</p>
+      <p class="eyebrow">TRAIN YOUR BRAIN</p>
+      <h1>Memory <span>Match</span></h1>
+      <p class="subtitle">
+        Look at the cards, remember the positions, and find the matching pairs!
+      </p>
     </header>
 
     <section class="stats" aria-label="Game statistics">
-      <div class="stat-box">
-        <span class="stat-label">MOVES</span>
-        <span class="stat-value" id="moves">0</span>
+      <div class="stat-card">
+        <div class="stat-icon moves-icon">⟳</div>
+        <div>
+          <p class="stat-label">Moves</p>
+          <p class="stat-value" id="moves">0</p>
+        </div>
       </div>
 
-      <div class="stat-box">
-        <span class="stat-label">TIME</span>
-        <span class="stat-value" id="timer">00:00</span>
+      <div class="stat-card">
+        <div class="stat-icon time-icon">◷</div>
+        <div>
+          <p class="stat-label">Time</p>
+          <p class="stat-value" id="timer">00:00</p>
+        </div>
       </div>
 
-      <div class="stat-box">
-        <span class="stat-label">MATCHED</span>
-        <span class="stat-value" id="matched">0 / 8</span>
+      <div class="stat-card">
+        <div class="stat-icon best-icon">🏆</div>
+        <div>
+          <p class="stat-label">Best Score</p>
+          <p class="stat-value" id="best-score">--</p>
+        </div>
       </div>
     </section>
 
-    <div class="best-score">
-      🏆 Best score: <span id="best-score">Not set</span>
+    <section class="game-panel">
+      <div class="status-message" id="message" role="status"
+           aria-live="polite">
+        Preparing your cards...
+      </div>
+
+      <div class="progress-info">
+        <span>Matched pairs</span>
+        <span id="progress">0 / 8</span>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <div class="game-board" id="game-board"
+           aria-label="Memory card board">
+      </div>
+    </section>
+
+    <div class="game-actions">
+      <button class="restart-button" id="restart" type="button">
+        <span class="restart-icon" aria-hidden="true">↻</span>
+        Restart Game
+      </button>
+      <p class="footer-note">Good luck! 🍀</p>
     </div>
 
-    <section
-      class="card-grid"
-      id="card-grid"
-      aria-label="Memory cards"
-    ></section>
-
-    <p
-      class="game-message"
-      id="game-message"
-      role="status"
-      aria-live="polite"
-    >
-      Tap a card to reveal it!
-    </p>
-
-    <button class="restart-button" id="restart-button" type="button">
-      ↻ Restart Game
-    </button>
-
-    <footer>
-      Built with HTML, CSS &amp; JavaScript
-    </footer>
   </main>
 </body>
 </html>
