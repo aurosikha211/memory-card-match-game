@@ -297,6 +297,19 @@ button {
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 
+#inviteBtn {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-left: 8px;
+}
+
+#inviteBtn:hover {
+    background-color: #1d4ed8;
+}
+
 .restart-button:hover {
   filter: brightness(1.12);
   transform: translateY(-2px);
