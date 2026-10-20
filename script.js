@@ -398,3 +398,17 @@ restartButton.addEventListener("click", restartGame);
 // Start the first game
 restartGame();
 
+// Invite a Friend feature
+const inviteBtn = document.getElementById("inviteBtn");
+
+inviteBtn.addEventListener("click", async () => {
+    const inviteLink = window.location.href;
+
+    try {
+        await navigator.clipboard.writeText(inviteLink);
+        alert("Game link copied! Share it with your friend.");
+    } catch (error) {
+        prompt("Copy this game link and share it:", inviteLink);
+    }
+});
+
