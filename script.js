@@ -18,6 +18,131 @@ const progressDisplay = document.getElementById("progress");
 const progressFill = document.getElementById("progress-fill");
 const restartButton = document.getElementById("restart");
 
+/* ---------- SOUND EFFECTS ---------- */
+
+let audioContext = null;
+
+function getAudioContext() {
+  if (!audioContext) {
+    const AudioContextClass =
+      window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) return null;
+
+    audioContext = new AudioContextClass();
+  }
+
+  if (audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+
+  return audioContext;
+}
+
+// Prepare audio after the player's first interaction.
+document.addEventListener("pointerdown", getAudioContext, {
+  once: true
+});
+
+function playTone(frequency, duration = 0.12, type = "sine", volume = 0.05) {
+  const ctx = getAudioContext();
+  if (!ctx || ctx.state !== "running") return;
+
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+  gain.gain.setValueAtTime(Math.max(volume, 0.001), ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(
+    0.001,
+    ctx.currentTime + duration
+  );
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + duration);
+}
+
+// Quiet clock tick
+function playTickSound() {
+  playTone(1000, 0.035, "square", 0.012);
+}
+
+// Short card-shuffling effect
+function playShuffleSound() {
+  [0, 55, 110, 165, 220].forEach((delay) => {
+    setTimeout(() => {
+      playTone(
+        300 + Math.random() * 500,
+        0.045,
+        "triangle",
+        0.025
+      );
+    }, delay);
+  });
+}
+
+// Cheerful matching chime
+function playMatchSound() {
+  playTone(660, 0.12, "sine", 0.06);
+
+  setTimeout(() => {
+    playTone(880, 0.16, "sine", 0.06);
+  }, 100);
+}
+
+// Winning melody
+function playWinSound() {
+  [523, 659, 784, 1047, 784, 1047].forEach((frequency, index) => {
+    setTimeout(() => {
+      playTone(frequency, 0.22, "sine", 0.07);
+    }, index * 140);
+  });
+}
+
+// Confetti celebration
+function launchConfetti() {
+  const colors = [
+    "#ff4757",
+    "#ffa502",
+    "#2ed573",
+    "#1e90ff",
+    "#e056fd",
+    "#f9ca24"
+  ];
+
+  for (let i = 0; i < 120; i++) {
+    const piece = document.createElement("span");
+
+    piece.className = "confetti-piece";
+    piece.style.left = Math.random() * 100 + "vw";
+    piece.style.backgroundColor =
+      colors[Math.floor(Math.random() * colors.length)];
+
+    piece.style.animationDuration =
+      (2 + Math.random() * 2) + "s";
+
+    piece.style.animationDelay =
+      Math.random() * 0.5 + "s";
+
+    piece.style.setProperty(
+      "--drift",
+      (Math.random() * 200 - 100) + "px"
+    );
+
+    document.body.appendChild(piece);
+
+    piece.addEventListener("animationend", () => {
+      piece.remove();
+    });
+  }
+}
+
+
 // Game state
 let cards = [];
 let flippedCards = [];
@@ -178,6 +303,7 @@ function startTimer() {
 
     seconds++;
     updateTimerDisplay();
+    playTickSound();
   }, 1000);
 }
 
@@ -270,6 +396,8 @@ function handleCardClick(cardId) {
 
     matchedPairs++;
 
+    playMatchSound();
+
     updateCardAppearance(firstCard.id);
     updateCardAppearance(secondCard.id);
     updateProgress();
@@ -348,6 +476,10 @@ function endGame() {
   cards.forEach((card) => {
     updateCardAppearance(card.id);
   });
+
+  // Celebrate the player's victory
+playWinSound();
+launchConfetti();
 }
 
 // Reset everything and start a fresh game
@@ -387,6 +519,8 @@ function restartGame() {
   // Create and shuffle a new set of cards
   cards = createCards();
   renderCards();
+
+  playShuffleSound();
 
   // Start the five-second preview
   startPreview();
