@@ -149,15 +149,34 @@ function createCards() {
 }
 function renderCards() {
   gameBoard.innerHTML = "";
-  gameBoard.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+
+  // Calculate columns based on the number of pairs
+  const pairs = cards.length / 2;
+  const columns = pairs / 2;
+
+  // Keep 4 rows and adjust columns for each level
+  gameBoard.style.gridTemplateColumns =
+    `repeat(${columns}, minmax(0, 1fr))`;
+  gameBoard.style.gridTemplateRows =
+    "repeat(4, minmax(0, 1fr))";
+
   cards.forEach(card => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "card";
     button.dataset.id = card.id;
-    button.setAttribute("aria-label",`Card ${card.id+1}`);
-    button.innerHTML = `<span class="card-inner"><span class="card-front" aria-hidden="true">?</span><span class="card-back" aria-hidden="true">${card.emoji}</span></span>`;
-    button.addEventListener("click",()=>handleCardClick(card.id));
+
+    button.setAttribute("aria-label", `Card ${card.id + 1}`);
+
+    button.innerHTML = `
+      <span class="card-inner">
+        <span class="card-front" aria-hidden="true">?</span>
+        <span class="card-back" aria-hidden="true">${card.emoji}</span>
+      </span>
+    `;
+
+    button.addEventListener("click", () => handleCardClick(card.id));
+
     gameBoard.appendChild(button);
     updateCardAppearance(card.id);
   });
