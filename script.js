@@ -1,14 +1,16 @@
-
-
-const emojis = [
-  "🍎", "🍌", "🍇", "🍉",
-  "🍓", "🍒", "🥝", "🍍"
+// Memory Match: 50 levels, coins, reveal power-up, sounds and confetti.
+const EMOJI_POOL = [
+  "🍎","🍌","🍇","🍉","🍓","🍒","🥝","🍍","🥑","🍋",
+  "🍑","🥥","🍐","🫐","🥕","🌽","🍄","🌶️","🥦","🍪",
+  "🍩","🍕","🍔","🍟","🌮","🍿","🧁","🍰","🍭","🍫"
 ];
-
+const MAX_LEVEL = 50;
+const STARTING_COINS = 30;
+const LEVEL_REWARD = 20;
+const REVEAL_COST = 10;
+const REVEAL_SECONDS = 3;
 const PREVIEW_SECONDS = 5;
-const TOTAL_PAIRS = emojis.length;
 
-// HTML elements
 const gameBoard = document.getElementById("game-board");
 const movesDisplay = document.getElementById("moves");
 const timerDisplay = document.getElementById("timer");
@@ -17,532 +19,339 @@ const messageDisplay = document.getElementById("message");
 const progressDisplay = document.getElementById("progress");
 const progressFill = document.getElementById("progress-fill");
 const restartButton = document.getElementById("restart");
-
-/* ---------- SOUND EFFECTS ---------- */
+const revealButton = document.getElementById("reveal");
+const levelDisplay = document.getElementById("level");
+const coinsDisplay = document.getElementById("coins");
 
 let audioContext = null;
-
 function getAudioContext() {
   if (!audioContext) {
-    const AudioContextClass =
-      window.AudioContext || window.webkitAudioContext;
-
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return null;
-
     audioContext = new AudioContextClass();
   }
-
-  if (audioContext.state === "suspended") {
-    audioContext.resume().catch(() => {});
-  }
-
+  if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
   return audioContext;
 }
-
-// Prepare audio after the player's first interaction.
-document.addEventListener("pointerdown", getAudioContext, {
-  once: true
-});
+document.addEventListener("pointerdown", getAudioContext, { once: true });
 
 function playTone(frequency, duration = 0.12, type = "sine", volume = 0.05) {
   const ctx = getAudioContext();
   if (!ctx || ctx.state !== "running") return;
-
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
-
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
-
   gain.gain.setValueAtTime(Math.max(volume, 0.001), ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(
-    0.001,
-    ctx.currentTime + duration
-  );
-
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
   oscillator.connect(gain);
   gain.connect(ctx.destination);
-
   oscillator.start();
   oscillator.stop(ctx.currentTime + duration);
 }
-
-// Quiet clock tick
-function playTickSound() {
-  playTone(1000, 0.035, "square", 0.012);
-}
-
-// Short card-shuffling effect
+function playTickSound() { playTone(1000, 0.035, "square", 0.012); }
 function playShuffleSound() {
-  [0, 55, 110, 165, 220].forEach((delay) => {
-    setTimeout(() => {
-      playTone(
-        300 + Math.random() * 500,
-        0.045,
-        "triangle",
-        0.025
-      );
-    }, delay);
-  });
+  [0,55,110,165,220].forEach(delay => setTimeout(() => playTone(300 + Math.random()*500, 0.045, "triangle", 0.025), delay));
 }
-
-// Cheerful matching chime
 function playMatchSound() {
   playTone(660, 0.12, "sine", 0.06);
-
-  setTimeout(() => {
-    playTone(880, 0.16, "sine", 0.06);
-  }, 100);
+  setTimeout(() => playTone(880, 0.16, "sine", 0.06), 100);
 }
-
-// Winning melody
 function playWinSound() {
-  [523, 659, 784, 1047, 784, 1047].forEach((frequency, index) => {
-    setTimeout(() => {
-      playTone(frequency, 0.22, "sine", 0.07);
-    }, index * 140);
-  });
+  [523,659,784,1047,784,1047].forEach((frequency,index) => setTimeout(() => playTone(frequency,0.22,"sine",0.07),index*140));
 }
-
-// Confetti celebration
+function playCoinSound() {
+  playTone(880,0.1,"sine",0.06);
+  setTimeout(() => playTone(1175,0.13,"sine",0.06),90);
+}
 function launchConfetti() {
-  const colors = [
-    "#ff4757",
-    "#ffa502",
-    "#2ed573",
-    "#1e90ff",
-    "#e056fd",
-    "#f9ca24"
-  ];
-
-  for (let i = 0; i < 120; i++) {
+  const colors = ["#ff4757","#ffa502","#2ed573","#1e90ff","#e056fd","#f9ca24"];
+  for (let i=0;i<120;i++) {
     const piece = document.createElement("span");
-
     piece.className = "confetti-piece";
-    piece.style.left = Math.random() * 100 + "vw";
-    piece.style.backgroundColor =
-      colors[Math.floor(Math.random() * colors.length)];
-
-    piece.style.animationDuration =
-      (2 + Math.random() * 2) + "s";
-
-    piece.style.animationDelay =
-      Math.random() * 0.5 + "s";
-
-    piece.style.setProperty(
-      "--drift",
-      (Math.random() * 200 - 100) + "px"
-    );
-
+    piece.style.left = Math.random()*100 + "vw";
+    piece.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+    piece.style.animationDuration = (2+Math.random()*2) + "s";
+    piece.style.animationDelay = Math.random()*0.5 + "s";
+    piece.style.setProperty("--drift",(Math.random()*200-100)+"px");
     document.body.appendChild(piece);
-
-    piece.addEventListener("animationend", () => {
-      piece.remove();
-    });
+    piece.addEventListener("animationend",()=>piece.remove());
   }
 }
+function clearConfetti() {
+  document.querySelectorAll(".confetti-piece").forEach(piece => piece.remove());
+}
 
+function loadNumber(key, fallback, min, max = Number.MAX_SAFE_INTEGER) {
+  try {
+    const value = Number(localStorage.getItem(key));
+    return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+  } catch { return fallback; }
+}
+let currentLevel = loadNumber("memoryCurrentLevel", 1, 1, MAX_LEVEL);
+let unlockedLevel = loadNumber("memoryUnlockedLevel", 1, 1, MAX_LEVEL);
+let coins = loadNumber("memoryCoins", STARTING_COINS, 0);
+let bestScore = loadNumber("memoryBestScore", 0, 0);
 
-// Game state
+function saveProgress() {
+  try {
+    localStorage.setItem("memoryCurrentLevel", String(currentLevel));
+    localStorage.setItem("memoryUnlockedLevel", String(unlockedLevel));
+    localStorage.setItem("memoryCoins", String(coins));
+    localStorage.setItem("memoryBestScore", String(bestScore));
+  } catch (error) {
+    console.warn("Could not save game progress.", error);
+  }
+}
+function updateCoins() {
+  coinsDisplay.textContent = coins;
+  revealButton.disabled = coins < REVEAL_COST || !gameStarted || gameOver || gameLocked || revealActive || flippedCards.length > 0;
+  revealButton.textContent = revealActive ? "Revealing..." : `Reveal · ${REVEAL_COST} 🪙`;
+}
+function updateLevelDisplay() {
+  levelDisplay.textContent = currentLevel;
+}
+function pairsForLevel(level) {
+  // Increase by one pair every ten levels: levels 1-10 = 8 pairs, 41-50 = 12 pairs.
+  return Math.min(12, 8 + Math.floor((level - 1) / 10));
+}
+function emojisForLevel(level) {
+  const pairCount = pairsForLevel(level);
+  return shuffleCards(EMOJI_POOL).slice(0, pairCount);
+}
+let activeEmojis = emojisForLevel(currentLevel);
 let cards = [];
 let flippedCards = [];
 let matchedPairs = 0;
 let moves = 0;
 let seconds = 0;
-
 let gameStarted = false;
 let gameLocked = true;
 let gameOver = false;
-
+let revealActive = false;
 let timerInterval = null;
 let countdownInterval = null;
 let previewTimeout = null;
 let mismatchTimeout = null;
+let revealTimeout = null;
 
-// Load best score safely from localStorage
-function loadBestScore() {
-  try {
-    const savedScore = Number(
-      localStorage.getItem("memoryBestScore")
-    );
-
-    return Number.isInteger(savedScore) && savedScore > 0
-      ? savedScore
-      : 0;
-  } catch (error) {
-    return 0;
-  }
-}
-
-let bestScore = loadBestScore();
-
-// Save best score safely
-function saveBestScore(score) {
-  try {
-    localStorage.setItem("memoryBestScore", String(score));
-  } catch (error) {
-    console.warn("Could not save the best score.", error);
-  }
-}
-
-// Shuffle cards using the Fisher-Yates algorithm
 function shuffleCards(values) {
   const shuffled = [...values];
-
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-
-    [shuffled[i], shuffled[j]] = [
-      shuffled[j],
-      shuffled[i]
-    ];
+  for (let i=shuffled.length-1;i>0;i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [shuffled[i],shuffled[j]] = [shuffled[j],shuffled[i]];
   }
-
   return shuffled;
 }
-
-// Create 16 cards containing 8 matching pairs
 function createCards() {
-  const values = shuffleCards([...emojis, ...emojis]);
-
-  return values.map((emoji, index) => ({
-    id: index,
-    emoji,
-    revealed: true,
-    matched: false
-  }));
+  const values = shuffleCards([...activeEmojis,...activeEmojis]);
+  return values.map((emoji,index)=>({id:index,emoji,revealed:true,matched:false}));
 }
-
-// Create the HTML for each card
 function renderCards() {
   gameBoard.innerHTML = "";
-
-  cards.forEach((card) => {
+  gameBoard.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+  cards.forEach(card => {
     const button = document.createElement("button");
-
     button.type = "button";
     button.className = "card";
     button.dataset.id = card.id;
-
-    button.setAttribute("aria-label", `Card ${card.id + 1}`);
-
-    button.innerHTML = `
-      <span class="card-inner">
-        <span class="card-front" aria-hidden="true">?</span>
-        <span class="card-back" aria-hidden="true">
-          ${card.emoji}
-        </span>
-      </span>
-    `;
-
-    button.addEventListener("click", () => {
-      handleCardClick(card.id);
-    });
-
+    button.setAttribute("aria-label",`Card ${card.id+1}`);
+    button.innerHTML = `<span class="card-inner"><span class="card-front" aria-hidden="true">?</span><span class="card-back" aria-hidden="true">${card.emoji}</span></span>`;
+    button.addEventListener("click",()=>handleCardClick(card.id));
     gameBoard.appendChild(button);
-
     updateCardAppearance(card.id);
   });
 }
-
-// Update the appearance and accessibility of a card
 function updateCardAppearance(cardId) {
   const card = cards[cardId];
-
-  const element = gameBoard.querySelector(
-    `[data-id="${cardId}"]`
-  );
-
+  const element = gameBoard.querySelector(`[data-id="${cardId}"]`);
   if (!card || !element) return;
-
   const isVisible = card.revealed || card.matched;
-
-  element.classList.toggle("flipped", isVisible);
-  element.classList.toggle("matched", card.matched);
-
-  element.disabled =
-    gameLocked ||
-    card.matched ||
-    card.revealed;
-
-  if (card.matched) {
-    element.setAttribute("aria-label", `Matched ${card.emoji}`);
-  } else if (card.revealed) {
-    element.setAttribute("aria-label", card.emoji);
-  } else {
-    element.setAttribute("aria-label", `Hidden card ${card.id + 1}`);
-  }
+  element.classList.toggle("flipped",isVisible);
+  element.classList.toggle("matched",card.matched);
+  element.disabled = gameLocked || card.matched || card.revealed || revealActive;
+  if (card.matched) element.setAttribute("aria-label",`Matched ${card.emoji}`);
+  else if (card.revealed) element.setAttribute("aria-label",card.emoji);
+  else element.setAttribute("aria-label",`Hidden card ${card.id+1}`);
 }
-
-// Update the progress bar and pair count
 function updateProgress() {
-  progressDisplay.textContent =
-    `${matchedPairs} / ${TOTAL_PAIRS}`;
-
-  const percentage = (matchedPairs / TOTAL_PAIRS) * 100;
-
-  progressFill.style.width = `${percentage}%`;
+  const totalPairs = activeEmojis.length;
+  progressDisplay.textContent = `${matchedPairs} / ${totalPairs}`;
+  progressFill.style.width = `${(matchedPairs/totalPairs)*100}%`;
 }
-
-// Update the timer display
 function updateTimerDisplay() {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  timerDisplay.textContent =
-    `${String(minutes).padStart(2, "0")}:` +
-    `${String(remainingSeconds).padStart(2, "0")}`;
+  timerDisplay.textContent = `${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
 }
-
-// Start the timer after the preview
 function startTimer() {
   clearInterval(timerInterval);
-
-  timerInterval = setInterval(() => {
+  timerInterval = setInterval(()=>{
     if (!gameStarted || gameOver) return;
-
     seconds++;
     updateTimerDisplay();
     playTickSound();
-  }, 1000);
+  },1000);
 }
-
-// Show all cards for five seconds, then hide them
+function refreshCards() {
+  cards.forEach(card=>updateCardAppearance(card.id));
+}
 function startPreview() {
   gameStarted = false;
   gameLocked = true;
-
-  cards.forEach((card) => {
-    card.revealed = true;
-    updateCardAppearance(card.id);
-  });
-
+  cards.forEach(card=>{card.revealed=true;updateCardAppearance(card.id);});
   let countdown = PREVIEW_SECONDS;
-
-  messageDisplay.textContent =
-    `Memorize the cards! Hiding in ${countdown}...`;
-
-  countdownInterval = setInterval(() => {
+  messageDisplay.textContent = `Level ${currentLevel}: memorize ${activeEmojis.length} pairs! Hiding in ${countdown}...`;
+  updateCoins();
+  countdownInterval = setInterval(()=>{
     countdown--;
-
-    if (countdown > 0) {
-      messageDisplay.textContent =
-        `Memorize the cards! Hiding in ${countdown}...`;
-    }
-  }, 1000);
-
-  previewTimeout = setTimeout(() => {
+    if (countdown>0) messageDisplay.textContent = `Memorize the cards! Hiding in ${countdown}...`;
+  },1000);
+  previewTimeout = setTimeout(()=>{
     clearInterval(countdownInterval);
     countdownInterval = null;
-
-    cards.forEach((card) => {
-      if (!card.matched) {
-        card.revealed = false;
-        updateCardAppearance(card.id);
-      }
-    });
-
+    cards.forEach(card=>{if(!card.matched) card.revealed=false;});
     gameStarted = true;
     gameLocked = false;
-
-    // Update all cards so they can now be clicked
-    cards.forEach((card) => {
-      updateCardAppearance(card.id);
-    });
-
-    messageDisplay.textContent =
-      "Find the matching pairs!";
-
+    refreshCards();
+    messageDisplay.textContent = "Find the matching pairs!";
+    updateCoins();
     startTimer();
-  }, PREVIEW_SECONDS * 1000);
+  },PREVIEW_SECONDS*1000);
 }
-
-// Handle a card click
 function handleCardClick(cardId) {
-  if (gameLocked || !gameStarted || gameOver) return;
-
+  if (gameLocked || !gameStarted || gameOver || revealActive) return;
   const card = cards[cardId];
-
-  if (
-    !card ||
-    card.matched ||
-    card.revealed ||
-    flippedCards.length >= 2
-  ) {
-    return;
-  }
-
-  // Reveal the selected card
+  if (!card || card.matched || card.revealed || flippedCards.length>=2) return;
   card.revealed = true;
   flippedCards.push(card);
-
   updateCardAppearance(cardId);
-
-  // Wait until two cards have been selected
-  if (flippedCards.length !== 2) return;
-
+  if (flippedCards.length!==2) return;
   moves++;
   movesDisplay.textContent = moves;
-
-  const [firstCard, secondCard] = flippedCards;
-
-  // Lock the board while processing the pair
+  const [firstCard,secondCard] = flippedCards;
   gameLocked = true;
-
-  // The two cards match
-  if (firstCard.emoji === secondCard.emoji) {
-    firstCard.matched = true;
-    secondCard.matched = true;
-
+  updateCoins();
+  if (firstCard.emoji===secondCard.emoji) {
+    firstCard.matched=true;
+    secondCard.matched=true;
     matchedPairs++;
-
     playMatchSound();
-
     updateCardAppearance(firstCard.id);
     updateCardAppearance(secondCard.id);
     updateProgress();
-
-    flippedCards = [];
-    gameLocked = false;
-
-    messageDisplay.textContent = "Great match! 🎉";
-
-    // Check whether all pairs have been matched
-    if (matchedPairs === TOTAL_PAIRS) {
-      endGame();
-      return;
-    }
-
-    // Refresh card availability
-    cards.forEach((item) => {
-      updateCardAppearance(item.id);
-    });
+    flippedCards=[];
+    gameLocked=false;
+    messageDisplay.textContent="Great match! 🎉";
+    if (matchedPairs===activeEmojis.length) { endGame(); return; }
+    refreshCards();
+    updateCoins();
   } else {
-    // The cards do not match
-    messageDisplay.textContent = "Not a match. Try again!";
-
-    mismatchTimeout = setTimeout(() => {
-      firstCard.revealed = false;
-      secondCard.revealed = false;
-
+    messageDisplay.textContent="Not a match. Try again!";
+    mismatchTimeout=setTimeout(()=>{
+      firstCard.revealed=false;
+      secondCard.revealed=false;
       updateCardAppearance(firstCard.id);
       updateCardAppearance(secondCard.id);
-
-      flippedCards = [];
-      gameLocked = false;
-      mismatchTimeout = null;
-
-      messageDisplay.textContent =
-        "Find the matching pairs!";
-
-      // Re-enable unmatched, hidden cards
-      cards.forEach((item) => {
-        updateCardAppearance(item.id);
-      });
-    }, 900);
+      flippedCards=[];
+      gameLocked=false;
+      mismatchTimeout=null;
+      messageDisplay.textContent="Find the matching pairs!";
+      refreshCards();
+      updateCoins();
+    },900);
   }
 }
-
-// Finish the game and save the best score
 function endGame() {
-  gameOver = true;
-  gameStarted = false;
-  gameLocked = true;
-
+  gameOver=true;
+  gameStarted=false;
+  gameLocked=true;
   clearInterval(timerInterval);
-  timerInterval = null;
-
-  const isNewBest = bestScore === 0 || moves < bestScore;
-
-  if (isNewBest) {
-    bestScore = moves;
-    saveBestScore(bestScore);
+  timerInterval=null;
+  const isNewBest = bestScore===0 || moves<bestScore;
+  if (isNewBest) bestScore=moves;
+  const reward = LEVEL_REWARD + (moves <= activeEmojis.length*2 ? 10 : 0);
+  coins += reward;
+  playWinSound();
+  playCoinSound();
+  launchConfetti();
+  bestScoreDisplay.textContent=bestScore;
+  const formattedTime=`${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;
+  if (currentLevel < MAX_LEVEL) {
+    unlockedLevel=Math.max(unlockedLevel,currentLevel+1);
+    // Resume at the next unlocked level after a refresh, without changing the
+    // level currently shown on the completed screen.
+    try { localStorage.setItem("memoryCurrentLevel", String(unlockedLevel)); } catch (error) {}
+    saveProgress();
+    messageDisplay.textContent=`🎉 Level ${currentLevel} complete in ${moves} moves (${formattedTime})! +${reward} coins. Next level unlocked!`;
+  } else {
+    saveProgress();
+    messageDisplay.textContent=`🏆 You completed all 50 levels! +${reward} coins. Amazing!`;
   }
-
-  bestScoreDisplay.textContent = bestScore;
-
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  const formattedTime =
-    `${String(minutes).padStart(2, "0")}:` +
-    `${String(remainingSeconds).padStart(2, "0")}`;
-
-  messageDisplay.textContent =
-    `🎉 You won in ${moves} moves and ${formattedTime}!` +
-    (isNewBest ? " New best score!" : " Well played!");
-
-  // Keep all matched cards visible and disabled
-  cards.forEach((card) => {
-    updateCardAppearance(card.id);
-  });
-
-  // Celebrate the player's victory
-playWinSound();
-launchConfetti();
+  cards.forEach(card=>updateCardAppearance(card.id));
+  restartButton.innerHTML = currentLevel < MAX_LEVEL
+    ? '<span class="restart-icon" aria-hidden="true">➜</span> Next Level'
+    : '<span class="restart-icon" aria-hidden="true">↻</span> Play Level 50 Again';
+  updateCoins();
 }
-
-// Reset everything and start a fresh game
+function startLevel(level) {
+  currentLevel = Math.max(1,Math.min(MAX_LEVEL,level));
+  activeEmojis = emojisForLevel(currentLevel);
+  updateLevelDisplay();
+  restartButton.innerHTML = '<span class="restart-icon" aria-hidden="true">↻</span> Restart Level';
+  restartGame();
+}
 function restartGame() {
-  // Cancel all timers from the previous game
   clearInterval(timerInterval);
   clearInterval(countdownInterval);
   clearTimeout(previewTimeout);
   clearTimeout(mismatchTimeout);
-
-  timerInterval = null;
-  countdownInterval = null;
-  previewTimeout = null;
-  mismatchTimeout = null;
-
-  // Reset game state
-  flippedCards = [];
-  matchedPairs = 0;
-  moves = 0;
-  seconds = 0;
-
-  gameStarted = false;
-  gameLocked = true;
-  gameOver = false;
-
-  // Reset the displays
-  movesDisplay.textContent = "0";
-  timerDisplay.textContent = "00:00";
-  bestScoreDisplay.textContent =
-    bestScore > 0 ? bestScore : "--";
-
-  progressDisplay.textContent = `0 / ${TOTAL_PAIRS}`;
-  progressFill.style.width = "0%";
-
-  messageDisplay.textContent = "Preparing your cards...";
-
-  // Create and shuffle a new set of cards
-  cards = createCards();
+  clearTimeout(revealTimeout);
+  clearConfetti();
+  timerInterval=countdownInterval=previewTimeout=mismatchTimeout=revealTimeout=null;
+  revealActive=false;
+  flippedCards=[];
+  matchedPairs=0;
+  moves=0;
+  seconds=0;
+  gameStarted=false;
+  gameLocked=true;
+  gameOver=false;
+  movesDisplay.textContent="0";
+  timerDisplay.textContent="00:00";
+  bestScoreDisplay.textContent=bestScore>0?bestScore:"--";
+  progressDisplay.textContent=`0 / ${activeEmojis.length}`;
+  progressFill.style.width="0%";
+  messageDisplay.textContent="Preparing your cards...";
+  cards=createCards();
   renderCards();
-
   playShuffleSound();
-
-  // Start the five-second preview
+  updateLevelDisplay();
+  updateCoins();
   startPreview();
 }
-
-// Start or restart the game when the button is clicked
-restartButton.addEventListener("click", restartGame);
-
-// Start the first game
-restartGame();
-
-// Invite a Friend feature
-const inviteBtn = document.getElementById("inviteBtn");
-
-inviteBtn.addEventListener("click", async () => {
-    const inviteLink = window.location.href;
-
-    try {
-        await navigator.clipboard.writeText(inviteLink);
-        alert("Game link copied! Share it with your friend.");
-    } catch (error) {
-        prompt("Copy this game link and share it:", inviteLink);
-    }
+function revealCards() {
+  if (!gameStarted || gameOver || gameLocked || revealActive || flippedCards.length > 0 || coins<REVEAL_COST) return;
+  coins-=REVEAL_COST;
+  saveProgress();
+  revealActive=true;
+  cards.forEach(card=>{if(!card.matched) card.revealed=true;});
+  refreshCards();
+  updateCoins();
+  messageDisplay.textContent=`Cards revealed for ${REVEAL_SECONDS} seconds! Remember their positions.`;
+  revealTimeout=setTimeout(()=>{
+    cards.forEach(card=>{if(!card.matched && !flippedCards.includes(card)) card.revealed=false;});
+    revealActive=false;
+    refreshCards();
+    updateCoins();
+    messageDisplay.textContent="Find the matching pairs!";
+    revealTimeout=null;
+  },REVEAL_SECONDS*1000);
+}
+restartButton.addEventListener("click",()=>{
+  if (gameOver && currentLevel<MAX_LEVEL) startLevel(currentLevel+1);
+  else restartGame();
 });
-
+revealButton.addEventListener("click",revealCards);
+updateLevelDisplay();
+coinsDisplay.textContent=coins;
+bestScoreDisplay.textContent=bestScore>0?bestScore:"--";
+restartGame();
