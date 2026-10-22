@@ -1,11 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#101d40" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101d40">
   <title>Memory Match Game</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -13,60 +14,58 @@
     <header class="game-header">
       <p class="eyebrow">TRAIN YOUR BRAIN</p>
       <h1>Memory <span>Match</span></h1>
-      <p class="subtitle">
-        Look at the cards, remember the positions, and find the matching pairs!
-      </p>
+      <p class="subtitle">Remember the cards and find every matching pair!</p>
     </header>
 
     <section class="stats" aria-label="Game statistics">
       <div class="stat-card">
-        <div class="stat-icon moves-icon">⟳</div>
+        <span class="stat-icon">⟳</span>
         <div><p class="stat-label">Moves</p><p class="stat-value" id="moves">0</p></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon time-icon">◷</div>
+        <span class="stat-icon">◷</span>
         <div><p class="stat-label">Time</p><p class="stat-value" id="timer">00:00</p></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon best-icon">🏆</div>
-        <div><p class="stat-label">Best Score</p><p class="stat-value" id="best-score">--</p></div>
+        <span class="stat-icon">🏆</span>
+        <div><p class="stat-label">Best</p><p class="stat-value" id="best-score">--</p></div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🪙</span>
+        <div><p class="stat-label">Coins</p><p class="stat-value" id="coins">30</p></div>
       </div>
     </section>
 
     <section class="game-panel">
-      <div class="level-toolbar" aria-label="Level and coins">
-        <div class="level-pill"><span aria-hidden="true">🎯</span> Level <strong id="level">1</strong><span class="level-total">/ 50</span></div>
-        <div class="coin-pill"><span aria-hidden="true">🪙</span> <strong id="coins">30</strong> coins</div>
+      <div class="level-row">
+        <span class="level-pill">LEVEL <strong id="level">1</strong> / 50</span>
+        <span class="pairs-label" id="pairs-label">8 pairs</span>
       </div>
 
-      <div class="status-message" id="message" role="status" aria-live="polite">
-        Preparing your cards...
-      </div>
+      <p class="status-message" id="message" role="status" aria-live="polite">
+        Memorize the cards!
+      </p>
 
       <div class="progress-info">
         <span>Matched pairs</span>
         <span id="progress">0 / 8</span>
       </div>
-      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
 
       <div class="game-board" id="game-board" aria-label="Memory card board"></div>
-
-      <div class="powerup-row">
-        <div class="powerup-copy">
-          <strong>🔍 Reveal Cards</strong>
-          <span>Show unmatched cards for 3 seconds · 10 coins</span>
-        </div>
-        <button class="reveal-button" id="reveal" type="button">Reveal · 10 🪙</button>
-      </div>
     </section>
 
-    <div class="game-actions">
-      <button class="restart-button" id="restart" type="button">
-        <span class="restart-icon" aria-hidden="true">↻</span>
-        Restart Level
+    <footer class="game-actions">
+      <button class="action-button reveal-button" id="reveal" type="button">
+        Reveal · 10 🪙
       </button>
-      <p class="footer-note">Complete levels to earn coins. 🍀</p>
-    </div>
+      <button class="action-button restart-button" id="restart" type="button">
+        ↻ Restart Game
+      </button>
+      <span class="footer-note">Good luck! 🍀</span>
+    </footer>
   </main>
 </body>
 </html>
