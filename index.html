@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +10,6 @@
 </head>
 <body>
   <main class="game-container">
-
     <header class="game-header">
       <p class="eyebrow">TRAIN YOUR BRAIN</p>
       <h1>Memory <span>Match</span></h1>
@@ -23,32 +21,25 @@
     <section class="stats" aria-label="Game statistics">
       <div class="stat-card">
         <div class="stat-icon moves-icon">⟳</div>
-        <div>
-          <p class="stat-label">Moves</p>
-          <p class="stat-value" id="moves">0</p>
-        </div>
+        <div><p class="stat-label">Moves</p><p class="stat-value" id="moves">0</p></div>
       </div>
-
       <div class="stat-card">
         <div class="stat-icon time-icon">◷</div>
-        <div>
-          <p class="stat-label">Time</p>
-          <p class="stat-value" id="timer">00:00</p>
-        </div>
+        <div><p class="stat-label">Time</p><p class="stat-value" id="timer">00:00</p></div>
       </div>
-
       <div class="stat-card">
         <div class="stat-icon best-icon">🏆</div>
-        <div>
-          <p class="stat-label">Best Score</p>
-          <p class="stat-value" id="best-score">--</p>
-        </div>
+        <div><p class="stat-label">Best Score</p><p class="stat-value" id="best-score">--</p></div>
       </div>
     </section>
 
     <section class="game-panel">
-      <div class="status-message" id="message" role="status"
-           aria-live="polite">
+      <div class="level-toolbar" aria-label="Level and coins">
+        <div class="level-pill"><span aria-hidden="true">🎯</span> Level <strong id="level">1</strong><span class="level-total">/ 50</span></div>
+        <div class="coin-pill"><span aria-hidden="true">🪙</span> <strong id="coins">30</strong> coins</div>
+      </div>
+
+      <div class="status-message" id="message" role="status" aria-live="polite">
         Preparing your cards...
       </div>
 
@@ -56,25 +47,26 @@
         <span>Matched pairs</span>
         <span id="progress">0 / 8</span>
       </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
 
-      <div class="progress-track">
-        <div class="progress-fill" id="progress-fill"></div>
-      </div>
+      <div class="game-board" id="game-board" aria-label="Memory card board"></div>
 
-      <div class="game-board" id="game-board"
-           aria-label="Memory card board">
+      <div class="powerup-row">
+        <div class="powerup-copy">
+          <strong>🔍 Reveal Cards</strong>
+          <span>Show unmatched cards for 3 seconds · 10 coins</span>
+        </div>
+        <button class="reveal-button" id="reveal" type="button">Reveal · 10 🪙</button>
       </div>
     </section>
 
     <div class="game-actions">
       <button class="restart-button" id="restart" type="button">
         <span class="restart-icon" aria-hidden="true">↻</span>
-        Restart Game
+        Restart Level
       </button>
-      <button id="inviteBtn">Invite a Friend</button>
-      <p class="footer-note">Good luck! 🍀</p>
+      <p class="footer-note">Complete levels to earn coins. 🍀</p>
     </div>
-
   </main>
 </body>
 </html>
