@@ -1,71 +1,334 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#101d40">
-  <title>Memory Match Game</title>
+
+  <meta
+    name="description"
+    content="Play Memory Match, a fun brain-training game with 50 levels, coins, and exciting challenges."
+  >
+
+  <meta name="theme-color" content="#090b1b">
+
+  <title>Memory Match | Train Your Brain</title>
+
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
+
 <body>
   <main class="game-container">
+
+    <!-- HEADER -->
     <header class="game-header">
-      <p class="eyebrow">TRAIN YOUR BRAIN</p>
-      <h1>Memory <span>Match</span></h1>
-      <p class="subtitle">Remember the cards and find every matching pair!</p>
+      <div>
+        <p class="brand">✦ TRAIN YOUR BRAIN</p>
+        <h1 class="header-title">Memory <span>Match</span></h1>
+        <p class="subtitle">Remember it. Match it. Master it.</p>
+      </div>
+
+      <div class="level-badge">
+        <span>🏆</span>
+        <span>50 Levels</span>
+      </div>
     </header>
 
-    <section class="stats" aria-label="Game statistics">
+    <!-- GAME STATISTICS -->
+    <section class="stats-grid" aria-label="Game statistics">
       <div class="stat-card">
-        <span class="stat-icon">⟳</span>
-        <div><p class="stat-label">Moves</p><p class="stat-value" id="moves">0</p></div>
+        <span class="stat-label">Moves</span>
+        <strong id="moves" class="stat-value">0</strong>
       </div>
+
       <div class="stat-card">
-        <span class="stat-icon">◷</span>
-        <div><p class="stat-label">Time</p><p class="stat-value" id="timer">00:00</p></div>
+        <span class="stat-label">Time</span>
+        <strong id="timer" class="stat-value">00:00</strong>
       </div>
+
       <div class="stat-card">
-        <span class="stat-icon">🏆</span>
-        <div><p class="stat-label">Best</p><p class="stat-value" id="best-score">--</p></div>
+        <span class="stat-label">Best Time</span>
+        <strong id="best" class="stat-value">--:--</strong>
       </div>
+
       <div class="stat-card">
-        <span class="stat-icon">🪙</span>
-        <div><p class="stat-label">Coins</p><p class="stat-value" id="coins">30</p></div>
+        <span class="stat-label">🪙 Coins</span>
+        <strong id="coins" class="stat-value">30</strong>
       </div>
     </section>
 
+    <!-- MAIN GAME PANEL -->
     <section class="game-panel">
-      <div class="level-row">
-        <span class="level-pill">LEVEL <strong id="level">1</strong> / 50</span>
-        <span class="pairs-label" id="pairs-label">8 pairs</span>
+
+      <div class="level-header">
+        <h2 class="level-title">
+          LEVEL <span id="levelNumber">1</span>
+        </h2>
+
+        <div class="level-badge">
+          Matched <span id="levelProgress">0/8</span>
+        </div>
       </div>
 
-      <p class="status-message" id="message" role="status" aria-live="polite">
-        Memorize the cards!
+      <p
+        id="previewCountdown"
+        class="preview-countdown hidden"
+        aria-live="polite"
+      ></p>
+
+      <div
+        class="progress-track"
+        role="progressbar"
+        aria-label="Matched pairs progress"
+        aria-valuemin="0"
+        aria-valuemax="8"
+        aria-valuenow="0"
+        id="progressTrack"
+      >
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <!-- JavaScript generates the 16 memory cards here -->
+      <div
+        id="gameBoard"
+        class="memory-board"
+        aria-label="Memory card game board"
+      ></div>
+
+      <!-- GAME CONTROLS -->
+      <div class="game-controls">
+        <button
+          type="button"
+          id="pauseBtn"
+          class="secondary-btn"
+        >
+          ⏸ Pause
+        </button>
+
+        <button
+          type="button"
+          id="revealBtn"
+          class="secondary-btn"
+          title="Reveal unmatched cards for a short time. Costs 10 coins."
+        >
+          👁 Reveal · 10 🪙
+        </button>
+
+        <button
+          type="button"
+          id="restartBtn"
+          class="secondary-btn"
+        >
+          ↻ Restart Level
+        </button>
+      </div>
+
+      <div class="action-buttons">
+        <button
+          type="button"
+          id="startOverBtn"
+          class="danger-btn"
+        >
+          ⟲ Start Over
+        </button>
+
+        <button
+          type="button"
+          id="inviteBtn"
+          class="secondary-btn"
+        >
+          ✉ Invite Friends
+        </button>
+      </div>
+
+    </section>
+
+    <!-- FOOTER -->
+    
+<footer class="game-footer">
+  Designed &amp; Developed by
+  <button
+    type="button"
+    class="designer-link"
+    id="designerLink"
+    aria-haspopup="dialog"
+    aria-controls="designerPopup"
+  >
+    Aurosikha Praharaj
+  </button>
+</footer>
+
+<div
+  class="designer-popup"
+  id="designerPopup"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="designerTitle"
+  hidden
+>
+  <div class="designer-popup-content">
+    <button
+      type="button"
+      class="designer-close"
+      id="closeDesignerPopup"
+      aria-label="Close popup"
+    >
+      &times;
+    </button>
+
+    <h2 id="designerTitle">Connect with the Designer</h2>
+    <p>Let's connect online!</p>
+
+    <a
+      href="https://www.linkedin.com/in/aurosikhap/"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="designer-social-link"
+    >
+      LinkedIn Profile
+    </a>
+
+    <a
+      href="https://github.com/aurosikha211"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="designer-social-link"
+    >
+      GitHub Profile
+    </a>
+  </div>
+</div>
+
+
+  </main>
+
+  <!-- INSTRUCTIONS SCREEN -->
+  <section
+    id="instructionsOverlay"
+    class="overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="instructionsTitle"
+  >
+    <div class="modal">
+      <div class="modal-icon">🧠</div>
+
+      <p class="brand">WELCOME TO THE CHALLENGE</p>
+
+      <h2 id="instructionsTitle">Memory Match</h2>
+
+      <p>
+        Train your brain, sharpen your memory, and conquer all 50 levels!
       </p>
 
-      <div class="progress-info">
-        <span>Matched pairs</span>
-        <span id="progress">0 / 8</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" id="progress-fill"></div>
-      </div>
+      <ul class="instructions-list">
+        <li>👀 <strong>Memorize:</strong> All 16 cards are shown for 10 seconds.</li>
+        <li>🃏 <strong>Match:</strong> Find all 8 matching pairs.</li>
+        <li>🪙 <strong>Earn coins:</strong> Complete a level to earn 20 coins.</li>
+        <li>👁 <strong>Reveal:</strong> Spend 10 coins to reveal unmatched cards briefly.</li>
+        <li>⏸ <strong>Pause:</strong> Take a break and resume when ready.</li>
+      </ul>
 
-      <div class="game-board" id="game-board" aria-label="Memory card board"></div>
-    </section>
+      <p>Ready to challenge your memory?</p>
 
-    <footer class="game-actions">
-      <button class="action-button reveal-button" id="reveal" type="button">
-        Reveal · 10 🪙
+      <button
+        type="button"
+        id="enterBtn"
+        class="primary-btn"
+      >
+        🚀 Enter — Start Level 1
       </button>
-      <button class="action-button restart-button" id="restart" type="button">
-        ↻ Restart Game
+    </div>
+  </section>
+
+  <!-- PAUSE SCREEN -->
+  <section
+    id="pauseOverlay"
+    class="overlay hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pauseTitle"
+  >
+    <div class="modal">
+      <div class="modal-icon">⏸️</div>
+      <h2 id="pauseTitle">Game Paused</h2>
+      <p>Take a breath. Your progress is waiting for you.</p>
+
+      <button
+        type="button"
+        id="resumeBtn"
+        class="primary-btn"
+      >
+        ▶ Resume Game
       </button>
-      <span class="footer-note">Good luck! 🍀</span>
-    </footer>
-  </main>
+    </div>
+  </section>
+
+  <!-- LEVEL COMPLETED SCREEN -->
+  <section
+    id="levelCompleteOverlay"
+    class="overlay hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="levelCompleteTitle"
+  >
+    <div class="modal">
+      <div class="modal-icon">🎉</div>
+      <h2 id="levelCompleteTitle">Level Complete!</h2>
+
+      <p>
+        Fantastic memory! You matched every pair.
+      </p>
+
+      <p>
+        Completed level:
+        <strong id="completedLevel">1</strong>
+      </p>
+
+      <p>
+        Time:
+        <strong id="completedTime">00:00</strong>
+      </p>
+
+      <p class="reward-text" id="levelReward">+20 coins</p>
+
+      <button
+        type="button"
+        id="nextLevelBtn"
+        class="primary-btn"
+      >
+        Next Level ➜
+      </button>
+    </div>
+  </section>
+
+  <!-- ALL 50 LEVELS COMPLETED SCREEN -->
+  <section
+    id="winOverlay"
+    class="overlay hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="winTitle"
+  >
+    <div class="modal">
+      <div class="modal-icon">🏆</div>
+      <h2 id="winTitle">Memory Master!</h2>
+
+      <p>
+        Incredible! You conquered all 50 levels of Memory Match.
+      </p>
+
+      <p class="reward-text">You are a true memory champion!</p>
+
+      <button
+        type="button"
+        id="playAgainBtn"
+        class="primary-btn"
+      >
+        🔄 Play Again
+      </button>
+    </div>
+  </section>
+
 </body>
 </html>
