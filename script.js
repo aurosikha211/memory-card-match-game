@@ -1,611 +1,929 @@
 
-"use strict";
+/* =========================================================
+   MEMORY MATCH — script.js
+   50 Levels | 8 Pairs | 10-Second Preview
+   Designed & developed by Aurosikha Praharaj
+   ========================================================= */
 
-// Memory Match: 50 levels, coins, reveal, sounds and confetti.
-const MAX_LEVEL = 50;
-const STARTING_COINS = 30;
-const LEVEL_REWARD = 20;
-const PERFECT_BONUS = 10;
-const REVEAL_COST = 10;
-const REVEAL_SECONDS = 3;
-const PREVIEW_SECONDS = 5;
+(() => {
+  "use strict";
 
-const EMOJI_POOL = [
-  "🍎", "🍌", "🍇", "🍉", "🍓", "🍒", "🥝", "🍍",
-  "🥑", "🍋", "🍑", "🥥", "🍐", "🫐", "🥕", "🌽",
-  "🍄", "🌶️", "🥦", "🍪", "🍩", "🍕", "🍔", "🍟",
-  "🌮", "🍿", "🧁", "🍰", "🍭", "🍫"
-];
+  // ---------------- CONFIGURATION ----------------
 
-const $ = id => document.getElementById(id);
+  const TOTAL_LEVELS = 50;
+  const PAIRS_PER_LEVEL = 8;
+  const PREVIEW_SECONDS = 10;
+  const STARTING_COINS = 30;
+  const LEVEL_REWARD = 20;
+  const REVEAL_COST = 10;
+  const MISMATCH_DELAY = 850;
+  const REVEAL_DURATION = 1800;
 
-const gameBoard = $("game-board");
-const movesDisplay = $("moves");
-const timerDisplay = $("timer");
-const bestScoreDisplay = $("best-score");
-const messageDisplay = $("message");
-const progressDisplay = $("progress");
-const progressFill = $("progress-fill");
-const restartButton = $("restart");
-const revealButton = $("reveal");
-const levelDisplay = $("level");
-const coinsDisplay = $("coins");
-const pairsLabel = $("pairs-label");
+  const $ = (id) => document.getElementById(id);
 
-if (
-  !gameBoard || !movesDisplay || !timerDisplay ||
-  !bestScoreDisplay || !messageDisplay || !progressDisplay ||
-  !progressFill || !restartButton || !revealButton ||
-  !levelDisplay || !coinsDisplay
-) {
-  throw new Error("A required game element is missing from index.html.");
-}
+  // ---------------- GAME ELEMENTS ----------------
 
-function loadNumber(key, fallback, min, max = Number.MAX_SAFE_INTEGER) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
+  const board = $("gameBoard") || $("memoryBoard");
+  const movesDisplay = $("moves");
+  const timeDisplay = $("timer") || $("time");
+  const bestDisplay = $("best");
+  const coinsDisplay = $("coins");
+  const levelDisplay = $("levelNumber") || $("level");
+  const progressDisplay = $("levelProgress");
+  const previewDisplay = $("previewCountdown");
 
-    const value = Number(raw);
-    return Number.isInteger(value) && value >= min && value <= max
-      ? value
-      : fallback;
-  } catch {
-    return fallback;
-  }
-}
+  const instructionsOverlay = $("instructionsOverlay") || $("instructionOverlay");
+  const pauseOverlay = $("pauseOverlay");
+  const levelCompleteOverlay = $("levelCompleteOverlay");
+  const winOverlay = $("winOverlay");
 
-let currentLevel = loadNumber("memoryCurrentLevel", 1, 1, MAX_LEVEL);
-let unlockedLevel = loadNumber("memoryUnlockedLevel", 1, 1, MAX_LEVEL);
-let coins = loadNumber("memoryCoins", STARTING_COINS, 0);
-let bestScore = loadNumber("memoryBestScore", 0, 0);
+  const enterButton = $("enterBtn") || $("enterButton");
+  const pauseButton = $("pauseBtn") || $("pauseButton");
+  const resumeButton = $("resumeBtn") || $("resumeButton");
+  const revealButton = $("revealBtn") || $("revealButton");
+  const restartButton = $("restartBtn") || $("restartButton");
+  const startOverButton = $("startOverBtn") || $("startOverButton");
+  const inviteButton = $("inviteBtn") || $("inviteButton");
+  const nextLevelButton = $("nextLevelBtn") || $("nextLevelButton");
+  const playAgainButton = $("playAgainBtn") || $("playAgainButton");
 
-let activeEmojis = [];
-let cards = [];
-let flippedCards = [];
-let matchedPairs = 0;
-let moves = 0;
-let seconds = 0;
+  const $all = (selector) => [...document.querySelectorAll(selector)];
 
-let gameStarted = false;
-let gameLocked = true;
-let gameOver = false;
-let revealActive = false;
+  // ---------------- CARD SYMBOL COLLECTIONS ----------------
 
-let timerInterval = null;
-let countdownInterval = null;
-let previewTimeout = null;
-let mismatchTimeout = null;
-let revealTimeout = null;
-let audioContext = null;
-
-function pairsForLevel(level) {
-  if (level <= 10) return 8;
-  if (level <= 20) return 10;
-  if (level <= 30) return 12;
-  if (level <= 40) return 14;
-  return 16;
-}
-
-function shuffleCards(values) {
-  const shuffled = [...values];
-
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-
-  return shuffled;
-}
-
-function saveProgress() {
-  try {
-    localStorage.setItem("memoryCurrentLevel", String(currentLevel));
-    localStorage.setItem("memoryUnlockedLevel", String(unlockedLevel));
-    localStorage.setItem("memoryCoins", String(coins));
-    localStorage.setItem("memoryBestScore", String(bestScore));
-  } catch (error) {
-    console.warn("Could not save game progress.", error);
-  }
-}
-
-// Audio
-function getAudioContext() {
-  if (!audioContext) {
-    const AudioContextClass =
-      window.AudioContext || window.webkitAudioContext;
-
-    if (!AudioContextClass) return null;
-    audioContext = new AudioContextClass();
-  }
-
-  if (audioContext.state === "suspended") {
-    audioContext.resume().catch(() => {});
-  }
-
-  return audioContext;
-}
-
-document.addEventListener("pointerdown", getAudioContext, { once: true });
-
-function playTone(frequency, duration = 0.12, type = "sine", volume = 0.04) {
-  const context = getAudioContext();
-  if (!context || context.state !== "running") return;
-
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-
-  oscillator.type = type;
-  oscillator.frequency.setValueAtTime(frequency, context.currentTime);
-  gain.gain.setValueAtTime(Math.max(volume, 0.001), context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(
-    0.001,
-    context.currentTime + duration
-  );
-
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-  oscillator.stop(context.currentTime + duration);
-}
-
-function playTickSound() {
-  playTone(1000, 0.035, "square", 0.01);
-}
-
-function playShuffleSound() {
-  [0, 55, 110, 165].forEach((delay, index) => {
-    setTimeout(() => {
-      playTone(320 + index * 100, 0.05, "triangle", 0.02);
-    }, delay);
-  });
-}
-
-function playMatchSound() {
-  playTone(660, 0.12);
-  setTimeout(() => playTone(880, 0.15), 100);
-}
-
-function playWinSound() {
-  [523, 659, 784, 1047].forEach((frequency, index) => {
-    setTimeout(() => playTone(frequency, 0.2), index * 130);
-  });
-}
-
-function playCoinSound() {
-  playTone(880, 0.1);
-  setTimeout(() => playTone(1175, 0.12), 90);
-}
-
-// Confetti
-function launchConfetti() {
-  const colors = [
-    "#ff4757", "#ffa502", "#2ed573",
-    "#1e90ff", "#e056fd", "#f9ca24"
+  const symbolSets = [
+    ["🍎", "🍌", "🍇", "🍒", "🍉", "🍓", "🍍", "🥝"],
+    ["🐶", "🐱", "🐼", "🦊", "🐸", "🐵", "🦁", "🐯"],
+    ["⭐", "🌙", "☀️", "⚡", "🔥", "❄️", "🌈", "☄️"],
+    ["🚀", "🚗", "🚲", "🚁", "🚂", "✈️", "⛵", "🚜"],
+    ["💎", "👑", "💍", "🎁", "🎈", "🎯", "🎲", "🎸"],
+    ["🌸", "🌻", "🌵", "🍀", "🍁", "🌹", "🌷", "🌼"],
+    ["⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏓", "🏸"],
+    ["😀", "😎", "🤩", "🥳", "😺", "🤖", "👻", "👽"],
+    ["♠", "♥", "♦", "♣", "★", "☆", "☯", "♛"],
+    ["α", "β", "γ", "δ", "π", "Ω", "λ", "Σ"],
+    ["0", "1", "2", "3", "4", "5", "6", "7"],
+    ["A", "B", "C", "D", "E", "F", "G", "H"],
+    ["!", "?", "@", "#", "$", "%", "&", "*"],
+    ["☂", "☀", "☁", "☃", "☕", "♫", "✈", "✿"],
+    ["🪐", "🌍", "🌕", "🌟", "🌌", "🛸", "🛰️", "🌠"],
+    ["🍕", "🍔", "🍟", "🌮", "🍩", "🍪", "🍰", "🍿"],
+    ["🐙", "🦋", "🐢", "🦉", "🦄", "🐬", "🦖", "🦩"],
+    ["⚓", "🔑", "🔒", "🧭", "🪄", "🔮", "🧲", "🪙"],
+    ["♩", "♪", "♫", "♬", "♭", "♮", "♯", "𝄞"],
+    ["☮", "☢", "☣", "⚙", "⚖", "⚔", "⚜", "⚛"],
+    ["🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "⬛", "⬜"],
+    ["🐝", "🐞", "🪲", "🦗", "🪳", "🦂", "🕷️", "🐜"],
+    ["🌶️", "🥑", "🥕", "🌽", "🥥", "🍋", "🍑", "🫐"],
+    ["🏆", "🥇", "🥈", "🥉", "🎖️", "🏅", "🎗️", "🎟️"],
+    ["∞", "∑", "∏", "√", "∫", "≈", "≠", "±"]
   ];
 
-  for (let i = 0; i < 100; i++) {
-    const piece = document.createElement("span");
-    piece.className = "confetti-piece";
-    piece.style.left = `${Math.random() * 100}vw`;
-    piece.style.backgroundColor =
-      colors[Math.floor(Math.random() * colors.length)];
-    piece.style.animationDuration = `${2 + Math.random() * 2}s`;
-    piece.style.animationDelay = `${Math.random() * 0.4}s`;
-    piece.style.setProperty("--drift", `${Math.random() * 200 - 100}px`);
-
-    document.body.appendChild(piece);
-    piece.addEventListener("animationend", () => piece.remove());
+  // Reuse the symbol collections for all 50 levels.
+  function symbolsForLevel(level) {
+    return symbolSets[(level - 1) % symbolSets.length];
   }
-}
 
-function clearConfetti() {
-  document.querySelectorAll(".confetti-piece").forEach(piece => piece.remove());
-}
+  // ---------------- GAME STATE ----------------
 
-// Display
-function updateLevelDisplay() {
-  levelDisplay.textContent = currentLevel;
-  if (pairsLabel) {
-    pairsLabel.textContent = `${pairsForLevel(currentLevel)} pairs`;
+  let currentLevel = 1;
+  let moves = 0;
+  let matches = 0;
+  let coins = loadNumber("memoryCoins", STARTING_COINS);
+  let bestTime = loadNumber("memoryBestTime", 0);
+
+  let firstCard = null;
+  let secondCard = null;
+
+  let started = false;
+  let paused = false;
+  let locked = false;
+  let previewing = false;
+  let revealing = false;
+  let levelFinished = false;
+
+  let elapsedSeconds = 0;
+  let timerInterval = null;
+  let previewInterval = null;
+  let mismatchTimeout = null;
+  let revealTimeout = null;
+  let runStartedAt = 0;
+  let previewRemaining = PREVIEW_SECONDS;
+  let audioContext = null;
+
+  // ---------------- UTILITIES ----------------
+
+  function loadNumber(key, fallback) {
+    try {
+      const value = Number(localStorage.getItem(key));
+      return Number.isFinite(value) && value >= 0 ? value : fallback;
+    } catch {
+      return fallback;
+    }
   }
-}
 
-function updateCoins() {
-  coinsDisplay.textContent = coins;
+  function saveNumber(key, value) {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch {
+      // Game remains playable if storage is unavailable.
+    }
+  }
 
-  revealButton.disabled =
-    coins < REVEAL_COST ||
-    !gameStarted ||
-    gameOver ||
-    gameLocked ||
-    revealActive ||
-    flippedCards.length > 0;
+  function shuffle(array) {
+    const result = [...array];
 
-  revealButton.textContent = revealActive
-    ? "Revealing..."
-    : `Reveal · ${REVEAL_COST} 🪙`;
-}
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
 
-function updateProgress() {
-  const totalPairs = activeEmojis.length;
-  progressDisplay.textContent = `${matchedPairs} / ${totalPairs}`;
-  progressFill.style.width = `${(matchedPairs / totalPairs) * 100}%`;
-}
+    return result;
+  }
 
-function updateTimerDisplay() {
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
+  function formatTime(seconds) {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const minutes = Math.floor(safeSeconds / 60);
+    const remaining = safeSeconds % 60;
 
-  timerDisplay.textContent =
-    `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
-}
+    return `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
+  }
 
-function updateStats() {
-  movesDisplay.textContent = moves;
-  bestScoreDisplay.textContent = bestScore > 0 ? bestScore : "--";
-  updateTimerDisplay();
-  updateProgress();
-  updateCoins();
-}
+  function setText(element, value) {
+    if (element) element.textContent = value;
+  }
 
-// Cards
-function createCards() {
-  const values = shuffleCards([...activeEmojis, ...activeEmojis]);
+  function show(element) {
+    if (element) element.classList.remove("hidden");
+  }
 
-  return values.map((emoji, index) => ({
-    id: index,
-    emoji,
-    revealed: true,
-    matched: false
-  }));
-}
+  function hide(element) {
+    if (element) element.classList.add("hidden");
+  }
 
-function renderCards() {
-  gameBoard.innerHTML = "";
+  function updateStats() {
+    setText(movesDisplay, moves);
+    setText(timeDisplay, formatTime(elapsedSeconds));
+    setText(coinsDisplay, coins);
+    setText(levelDisplay, currentLevel);
 
-  const pairCount = activeEmojis.length;
-  const columns = pairCount / 2;
+    if (bestDisplay) {
+      setText(bestDisplay, bestTime ? formatTime(bestTime) : "--:--");
+    }
 
-  gameBoard.style.setProperty("--board-columns", columns);
-  gameBoard.style.gridTemplateColumns =
-    `repeat(${columns}, minmax(0, 1fr))`;
-  gameBoard.style.gridTemplateRows = "repeat(4, minmax(0, 1fr))";
+    if (progressDisplay) {
+      setText(progressDisplay, `${matches}/${PAIRS_PER_LEVEL}`);
+    }
 
-  cards.forEach(card => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "card";
-    button.dataset.id = card.id;
+    if (revealButton) {
+      revealButton.disabled =
+        !started ||
+        paused ||
+        previewing ||
+        locked ||
+        levelFinished ||
+        coins < REVEAL_COST ||
+        matches === PAIRS_PER_LEVEL;
+    }
 
-    button.innerHTML = `
+    if (pauseButton) {
+      pauseButton.disabled = !started || levelFinished;
+      pauseButton.textContent = paused ? "▶ Resume" : "⏸ Pause";
+    }
+  }
+
+  function changeCoins(amount) {
+    coins = Math.max(0, coins + amount);
+    saveNumber("memoryCoins", coins);
+    updateStats();
+  }
+
+  // ---------------- SOUND EFFECTS ----------------
+
+  function getAudioContext() {
+    if (!audioContext) {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (AudioContextClass) {
+        audioContext = new AudioContextClass();
+      }
+    }
+
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+
+    return audioContext;
+  }
+
+  function playTone(frequency = 650, duration = 0.08, type = "sine", volume = 0.045) {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+      gain.gain.setValueAtTime(volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + duration
+      );
+
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + duration);
+    } catch {
+      // Sound is optional.
+    }
+  }
+
+  function playTick() {
+    playTone(850, 0.035, "square", 0.018);
+  }
+
+  function playCardFlip() {
+    playTone(520, 0.07, "sine", 0.04);
+  }
+
+  function playMatch() {
+    playTone(660, 0.1);
+    setTimeout(() => playTone(880, 0.12), 90);
+  }
+
+  function playMismatch() {
+    playTone(220, 0.13, "triangle", 0.035);
+  }
+
+  function playLevelComplete() {
+    [523, 659, 784, 1047].forEach((frequency, index) => {
+      setTimeout(() => playTone(frequency, 0.18), index * 100);
+    });
+  }
+
+  // ---------------- TIMER ----------------
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  function startTimer() {
+    stopTimer();
+
+    if (!started || paused || previewing || levelFinished) return;
+
+    runStartedAt = Date.now();
+
+    timerInterval = setInterval(() => {
+      if (paused || previewing || levelFinished) return;
+
+      elapsedSeconds += Math.floor((Date.now() - runStartedAt) / 1000);
+      runStartedAt = Date.now();
+
+      playTick();
+      updateStats();
+    }, 1000);
+  }
+
+  // ---------------- CARD CREATION ----------------
+
+  function makeCard(symbol, index) {
+    const card = document.createElement("button");
+
+    card.type = "button";
+    card.className = "memory-card";
+    card.setAttribute("aria-label", "Hidden card");
+    card.dataset.symbol = symbol;
+    card.dataset.index = index;
+    card.dataset.matched = "false";
+
+    card.innerHTML = `
       <span class="card-inner">
-        <span class="card-front" aria-hidden="true">?</span>
-        <span class="card-back" aria-hidden="true">${card.emoji}</span>
+        <span class="card-back" aria-hidden="true">?</span>
+        <span class="card-front" aria-hidden="true"></span>
       </span>
     `;
 
-    button.addEventListener("click", () => handleCardClick(card.id));
-    gameBoard.appendChild(button);
-    updateCardAppearance(card.id);
-  });
-}
+    const front = card.querySelector(".card-front");
+    front.textContent = symbol;
 
-function updateCardAppearance(cardId) {
-  const card = cards[cardId];
-  const element = gameBoard.querySelector(`[data-id="${cardId}"]`);
+    card.addEventListener("click", () => handleCardClick(card));
 
-  if (!card || !element) return;
-
-  const visible = card.revealed || card.matched;
-
-  element.classList.toggle("flipped", visible);
-  element.classList.toggle("matched", card.matched);
-
-  element.disabled =
-    gameLocked || gameOver || card.matched || card.revealed || revealActive;
-
-  element.setAttribute(
-    "aria-label",
-    card.matched
-      ? `Matched ${card.emoji}`
-      : visible
-        ? card.emoji
-        : `Hidden card ${card.id + 1}`
-  );
-}
-
-function refreshCards() {
-  cards.forEach(card => updateCardAppearance(card.id));
-}
-
-// Timer and preview
-function clearGameTimers() {
-  clearInterval(timerInterval);
-  clearInterval(countdownInterval);
-  clearTimeout(previewTimeout);
-  clearTimeout(mismatchTimeout);
-  clearTimeout(revealTimeout);
-
-  timerInterval = null;
-  countdownInterval = null;
-  previewTimeout = null;
-  mismatchTimeout = null;
-  revealTimeout = null;
-}
-
-function startTimer() {
-  if (timerInterval) return;
-
-  timerInterval = setInterval(() => {
-    if (!gameStarted || gameOver) return;
-
-    seconds++;
-    updateTimerDisplay();
-    playTickSound();
-  }, 1000);
-}
-
-function startPreview() {
-  gameStarted = false;
-  gameLocked = true;
-
-  cards.forEach(card => {
-    card.revealed = true;
-  });
-
-  refreshCards();
-  updateCoins();
-
-  let countdown = PREVIEW_SECONDS;
-  messageDisplay.textContent =
-    `Level ${currentLevel}: memorize ${activeEmojis.length} pairs! Hiding in ${countdown}...`;
-
-  countdownInterval = setInterval(() => {
-    countdown--;
-
-    if (countdown > 0) {
-      messageDisplay.textContent = `Memorize the cards! Hiding in ${countdown}...`;
-    }
-  }, 1000);
-
-  previewTimeout = setTimeout(() => {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-
-    cards.forEach(card => {
-      if (!card.matched) card.revealed = false;
-    });
-
-    gameStarted = true;
-    gameLocked = false;
-    refreshCards();
-
-    messageDisplay.textContent = "Find the matching pairs!";
-    updateCoins();
-    startTimer();
-  }, PREVIEW_SECONDS * 1000);
-}
-
-// Gameplay
-function handleCardClick(cardId) {
-  if (gameLocked || !gameStarted || gameOver || revealActive) return;
-
-  const card = cards[cardId];
-
-  if (
-    !card ||
-    card.matched ||
-    card.revealed ||
-    flippedCards.length >= 2
-  ) {
-    return;
+    return card;
   }
 
-  card.revealed = true;
-  flippedCards.push(card);
-  updateCardAppearance(cardId);
-  playTone(440, 0.06, "sine", 0.025);
-
-  if (flippedCards.length !== 2) return;
-
-  moves++;
-  gameLocked = true;
-  updateStats();
-
-  const [firstCard, secondCard] = flippedCards;
-
-  if (firstCard.emoji === secondCard.emoji) {
-    firstCard.matched = true;
-    secondCard.matched = true;
-    matchedPairs++;
-
-    flippedCards = [];
-    playMatchSound();
-
-    refreshCards();
-    updateStats();
-
-    if (matchedPairs === activeEmojis.length) {
-      endGame();
+  function buildBoard() {
+    if (!board) {
+      console.error(
+        "Memory Match: Add an element with id='gameBoard' or id='memoryBoard' to index.html."
+      );
       return;
     }
 
-    messageDisplay.textContent = "Great match! 🎉";
-    gameLocked = false;
-    refreshCards();
-    updateCoins();
-  } else {
-    messageDisplay.textContent = "Not a match. Try again!";
+    board.replaceChildren();
 
-    mismatchTimeout = setTimeout(() => {
-      firstCard.revealed = false;
-      secondCard.revealed = false;
-      flippedCards = [];
-      mismatchTimeout = null;
+    const symbols = symbolsForLevel(currentLevel);
+    const deck = shuffle([...symbols, ...symbols]);
 
-      gameLocked = false;
-      messageDisplay.textContent = "Find the matching pairs!";
-
-      refreshCards();
-      updateCoins();
-    }, 850);
-  }
-}
-
-// Reveal power-up
-function revealCards() {
-  if (
-    !gameStarted ||
-    gameOver ||
-    gameLocked ||
-    revealActive ||
-    flippedCards.length > 0 ||
-    coins < REVEAL_COST
-  ) {
-    return;
-  }
-
-  coins -= REVEAL_COST;
-  saveProgress();
-
-  revealActive = true;
-  gameLocked = true;
-
-  cards.forEach(card => {
-    if (!card.matched) card.revealed = true;
-  });
-
-  refreshCards();
-  updateCoins();
-
-  messageDisplay.textContent =
-    `Cards revealed for ${REVEAL_SECONDS} seconds! Remember their positions.`;
-
-  revealTimeout = setTimeout(() => {
-    cards.forEach(card => {
-      if (!card.matched) card.revealed = false;
+    deck.forEach((symbol, index) => {
+      board.appendChild(makeCard(symbol, index));
     });
-
-    revealActive = false;
-    gameLocked = false;
-    revealTimeout = null;
-
-    refreshCards();
-    updateCoins();
-
-    messageDisplay.textContent = "Find the matching pairs!";
-  }, REVEAL_SECONDS * 1000);
-}
-
-// Level completion
-function endGame() {
-  gameOver = true;
-  gameStarted = false;
-  gameLocked = true;
-
-  clearInterval(timerInterval);
-  timerInterval = null;
-
-  const isNewBest = bestScore === 0 || moves < bestScore;
-  if (isNewBest) bestScore = moves;
-
-  const bonus = moves <= activeEmojis.length * 2 ? PERFECT_BONUS : 0;
-  const reward = LEVEL_REWARD + bonus;
-
-  coins += reward;
-
-  playWinSound();
-  playCoinSound();
-  launchConfetti();
-
-  if (currentLevel < MAX_LEVEL) {
-    unlockedLevel = Math.max(unlockedLevel, currentLevel + 1);
-    messageDisplay.textContent =
-      `🎉 Level ${currentLevel} complete! +${reward} coins. Next level unlocked!`;
-  } else {
-    messageDisplay.textContent =
-      `🏆 You completed all 50 levels! +${reward} coins. Amazing!`;
   }
 
-  // Persist the completed level and newly unlocked progress.
-  saveProgress();
+  function allCards() {
+    return board ? [...board.querySelectorAll(".memory-card")] : [];
+  }
 
-  // Resume at the next level if the player refreshes after winning.
-  if (currentLevel < MAX_LEVEL) {
-    try {
-      localStorage.setItem("memoryCurrentLevel", String(currentLevel + 1));
-    } catch (error) {
-      console.warn("Could not save next level.", error);
+  function flipCard(card, faceUp) {
+    if (!card) return;
+
+    card.classList.toggle("flipped", faceUp);
+    card.classList.toggle("is-flipped", faceUp);
+    card.setAttribute("aria-label", faceUp ? card.dataset.symbol : "Hidden card");
+  }
+
+  function markMatched(card) {
+    card.dataset.matched = "true";
+    card.classList.add("matched");
+    card.disabled = true;
+    card.setAttribute("aria-label", `${card.dataset.symbol}, matched`);
+  }
+
+  function hideUnmatchedCards() {
+    allCards().forEach((card) => {
+      if (card.dataset.matched !== "true") {
+        flipCard(card, false);
+      }
+    });
+  }
+
+  // ---------------- LEVEL PREVIEW ----------------
+
+  function beginPreview() {
+    clearInterval(previewInterval);
+
+    previewing = true;
+    previewRemaining = PREVIEW_SECONDS;
+    locked = true;
+
+    allCards().forEach((card) => flipCard(card, true));
+
+    if (previewDisplay) {
+      previewDisplay.textContent = `Memorize! ${previewRemaining}s`;
+      previewDisplay.classList.remove("hidden");
+    }
+
+    updateStats();
+
+    previewInterval = setInterval(() => {
+      if (paused) return;
+
+      previewRemaining--;
+
+      if (previewDisplay) {
+        previewDisplay.textContent = `Memorize! ${previewRemaining}s`;
+      }
+
+      playTick();
+
+      if (previewRemaining <= 0) {
+        clearInterval(previewInterval);
+        previewInterval = null;
+
+        previewing = false;
+        locked = false;
+
+        hideUnmatchedCards();
+
+        if (previewDisplay) {
+          previewDisplay.textContent = "";
+          previewDisplay.classList.add("hidden");
+        }
+
+        playTone(440, 0.12);
+        startTimer();
+        updateStats();
+      }
+    }, 1000);
+  }
+
+  // ---------------- MATCHING LOGIC ----------------
+
+  function handleCardClick(card) {
+    if (
+      !started ||
+      paused ||
+      previewing ||
+      locked ||
+      levelFinished ||
+      !card ||
+      card.dataset.matched === "true" ||
+      card === firstCard ||
+      card.classList.contains("flipped") ||
+      card.classList.contains("is-flipped")
+    ) {
+      return;
+    }
+
+    flipCard(card, true);
+    playCardFlip();
+
+    if (!firstCard) {
+      firstCard = card;
+      return;
+    }
+
+    secondCard = card;
+    moves++;
+    locked = true;
+    updateStats();
+
+    if (firstCard.dataset.symbol === secondCard.dataset.symbol) {
+      markMatched(firstCard);
+      markMatched(secondCard);
+
+      matches++;
+      firstCard = null;
+      secondCard = null;
+      locked = false;
+
+      playMatch();
+      updateStats();
+
+      if (matches === PAIRS_PER_LEVEL) {
+        completeLevel();
+      }
+    } else {
+      playMismatch();
+
+      mismatchTimeout = setTimeout(() => {
+        if (paused) return;
+
+        flipCard(firstCard, false);
+        flipCard(secondCard, false);
+
+        firstCard = null;
+        secondCard = null;
+        locked = false;
+
+        updateStats();
+      }, MISMATCH_DELAY);
     }
   }
 
-  restartButton.textContent =
-    currentLevel < MAX_LEVEL ? "➜ Next Level" : "↻ Play Level 50 Again";
+  // ---------------- PAUSE / RESUME ----------------
 
-  refreshCards();
-  updateStats();
-}
+  function pauseGame() {
+    if (!started || paused || levelFinished) return;
 
-function startLevel(level) {
-  currentLevel = Math.max(1, Math.min(MAX_LEVEL, level));
-  unlockedLevel = Math.max(unlockedLevel, currentLevel);
+    paused = true;
+    stopTimer();
 
-  activeEmojis = shuffleCards(EMOJI_POOL).slice(
-    0,
-    pairsForLevel(currentLevel)
-  );
+    // Keep the current preview countdown when pausing.
+    // Its interval resumes when the game resumes.
+    if (mismatchTimeout) {
+      clearTimeout(mismatchTimeout);
+      mismatchTimeout = null;
+    }
 
-  saveProgress();
-  updateLevelDisplay();
+    show(pauseOverlay);
+    updateStats();
+  }
 
-  restartButton.textContent = "↻ Restart Level";
-  restartGame();
-}
+  function resumeGame() {
+    if (!paused) return;
 
-function restartGame() {
-  clearGameTimers();
-  clearConfetti();
+    paused = false;
+    hide(pauseOverlay);
 
-  revealActive = false;
-  flippedCards = [];
-  matchedPairs = 0;
-  moves = 0;
-  seconds = 0;
+    if (previewing) {
+      // The preview interval is still active and will continue.
+    } else if (firstCard && secondCard) {
+      mismatchTimeout = setTimeout(() => {
+        if (paused || !firstCard || !secondCard) return;
 
-  gameStarted = false;
-  gameLocked = true;
-  gameOver = false;
+        flipCard(firstCard, false);
+        flipCard(secondCard, false);
 
-  activeEmojis = activeEmojis.length
-    ? activeEmojis
-    : shuffleCards(EMOJI_POOL).slice(0, pairsForLevel(currentLevel));
+        firstCard = null;
+        secondCard = null;
+        locked = false;
+        updateStats();
+      }, MISMATCH_DELAY);
+    } else {
+      startTimer();
+    }
 
-  cards = createCards();
+    updateStats();
+  }
 
-  restartButton.textContent = "↻ Restart Game";
+  // ---------------- REVEAL POWER-UP ----------------
 
-  updateLevelDisplay();
-  renderCards();
-  updateStats();
+  function revealAllCards() {
+    if (
+      !started ||
+      paused ||
+      previewing ||
+      locked ||
+      levelFinished ||
+      coins < REVEAL_COST
+    ) {
+      return;
+    }
 
-  messageDisplay.textContent = "Preparing your cards...";
-  playShuffleSound();
-  startPreview();
-}
+    changeCoins(-REVEAL_COST);
+    revealing = true;
+    locked = true;
 
-// Button events
-restartButton.addEventListener("click", () => {
-  if (gameOver && currentLevel < MAX_LEVEL) {
+    allCards().forEach((card) => {
+      if (card.dataset.matched !== "true") {
+        flipCard(card, true);
+      }
+    });
+
+    playTone(740, 0.15);
+
+    clearTimeout(revealTimeout);
+    revealTimeout = setTimeout(() => {
+      if (paused) return;
+
+      hideUnmatchedCards();
+
+      revealing = false;
+      locked = false;
+      updateStats();
+    }, REVEAL_DURATION);
+
+    updateStats();
+  }
+
+  // ---------------- LEVEL FLOW ----------------
+
+  function clearGameTimers() {
+    stopTimer();
+
+    clearInterval(previewInterval);
+    clearTimeout(mismatchTimeout);
+    clearTimeout(revealTimeout);
+
+    previewInterval = null;
+    mismatchTimeout = null;
+    revealTimeout = null;
+  }
+
+  function startLevel(level) {
+    clearGameTimers();
+
+    currentLevel = Math.max(1, Math.min(TOTAL_LEVELS, level));
+    moves = 0;
+    matches = 0;
+    elapsedSeconds = 0;
+
+    firstCard = null;
+    secondCard = null;
+
+    paused = false;
+    locked = false;
+    previewing = false;
+    revealing = false;
+    levelFinished = false;
+    previewRemaining = PREVIEW_SECONDS;
+
+    hide(pauseOverlay);
+    hide(levelCompleteOverlay);
+    hide(winOverlay);
+
+    if (progressDisplay) {
+      progressDisplay.textContent = `0/${PAIRS_PER_LEVEL}`;
+    }
+
+    if (progressDisplay) {
+      progressDisplay.setAttribute("aria-label", "Matched pairs");
+    }
+
+    buildBoard();
+    updateStats();
+
+    if (started) {
+      beginPreview();
+    }
+  }
+
+  function completeLevel() {
+    if (levelFinished) return;
+
+    levelFinished = true;
+    locked = true;
+
+    clearGameTimers();
+
+    bestTime = bestTime === 0
+      ? elapsedSeconds
+      : Math.min(bestTime, elapsedSeconds);
+
+    saveNumber("memoryBestTime", bestTime);
+
+    changeCoins(LEVEL_REWARD);
+
+    playLevelComplete();
+    burstConfetti();
+
+    const completedLevelDisplay = $("completedLevel");
+    const rewardDisplay = $("levelReward");
+    const completedTimeDisplay = $("completedTime");
+
+    setText(completedLevelDisplay, currentLevel);
+    setText(rewardDisplay, `+${LEVEL_REWARD} coins`);
+    setText(completedTimeDisplay, formatTime(elapsedSeconds));
+
+    updateStats();
+
+    if (currentLevel >= TOTAL_LEVELS) {
+      show(winOverlay);
+    } else {
+      show(levelCompleteOverlay);
+    }
+  }
+
+  function enterGame() {
+    if (started) return;
+
+    started = true;
+    hide(instructionsOverlay);
+    startLevel(1);
+  }
+
+  function restartCurrentLevel() {
+    if (!started) {
+      enterGame();
+      return;
+    }
+
+    if (!window.confirm("Restart this level? Its timer and moves will reset.")) {
+      return;
+    }
+
+    startLevel(currentLevel);
+  }
+
+  function startOver() {
+    if (
+      started &&
+      !window.confirm("Start over from Level 1? Your earned coins will remain.")
+    ) {
+      return;
+    }
+
+    started = true;
+    currentLevel = 1;
+
+    hide(instructionsOverlay);
+    startLevel(1);
+  }
+
+  function goToNextLevel() {
+    if (!levelFinished || currentLevel >= TOTAL_LEVELS) return;
+
     startLevel(currentLevel + 1);
-  } else {
-    restartGame();
+  }
+
+  function playAgain() {
+    started = true;
+    currentLevel = 1;
+    hide(winOverlay);
+    startLevel(1);
+  }
+
+  // ---------------- INVITE FRIENDS ----------------
+
+  async function inviteFriends() {
+    const inviteText =
+      "Let's play Memory Match! Test your memory and beat my score!";
+
+    const inviteUrl = window.location.href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Memory Match",
+          text: inviteText,
+          url: inviteUrl
+        });
+      } else if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(`${inviteText}\n${inviteUrl}`);
+        alert("Invitation copied! Share it with your friends.");
+      } else {
+        window.prompt(
+          "Copy this invitation and send it to your friends:",
+          `${inviteText}\n${inviteUrl}`
+        );
+      }
+    } catch (error) {
+      if (error && error.name !== "AbortError") {
+        window.prompt(
+          "Copy this invitation and send it to your friends:",
+          `${inviteText}\n${inviteUrl}`
+        );
+      }
+    }
+  }
+
+  // ---------------- CONFETTI ----------------
+
+  function burstConfetti() {
+    const colors = [
+      "#ffd54a",
+      "#a78bfa",
+      "#53e0d0",
+      "#ff6b9a",
+      "#ffffff",
+      "#8b5cf6"
+    ];
+
+    const container = document.createElement("div");
+    container.className = "confetti-container";
+    container.setAttribute("aria-hidden", "true");
+
+    Object.assign(container.style, {
+      position: "fixed",
+      inset: "0",
+      pointerEvents: "none",
+      overflow: "hidden",
+      zIndex: "9999"
+    });
+
+    const particleCount = 100;
+
+    for (let i = 0; i < particleCount; i++) {
+      const piece = document.createElement("span");
+
+      piece.className = "confetti-piece";
+
+      Object.assign(piece.style, {
+        position: "absolute",
+        left: `${Math.random() * 100}%`,
+        top: "-14px",
+        width: `${5 + Math.random() * 8}px`,
+        height: `${7 + Math.random() * 10}px`,
+        backgroundColor: colors[Math.floor(Math.random() * colors.length)],
+        borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+        opacity: "1",
+        transform: `rotate(${Math.random() * 360}deg)`,
+        animation: `memoryConfettiFall ${2 + Math.random() * 2.2}s linear forwards`,
+        animationDelay: `${Math.random() * 0.7}s`
+      });
+
+      container.appendChild(piece);
+    }
+
+    if (!document.getElementById("memoryConfettiStyle")) {
+      const style = document.createElement("style");
+      style.id = "memoryConfettiStyle";
+      style.textContent = `
+        @keyframes memoryConfettiFall {
+          0% {
+            transform: translate3d(0, -10px, 0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate3d(var(--drift, 35px), 105vh, 0) rotate(800deg);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(container);
+
+    setTimeout(() => container.remove(), 5000);
+  }
+
+  // ---------------- BUTTON EVENTS ----------------
+
+  if (enterButton) {
+    enterButton.addEventListener("click", enterGame);
+  }
+
+  if (pauseButton) {
+    pauseButton.addEventListener("click", () => {
+      if (paused) {
+        resumeGame();
+      } else {
+        pauseGame();
+      }
+    });
+  }
+
+  if (resumeButton) {
+    resumeButton.addEventListener("click", resumeGame);
+  }
+
+  if (revealButton) {
+    revealButton.addEventListener("click", revealAllCards);
+  }
+
+  if (restartButton) {
+    restartButton.addEventListener("click", restartCurrentLevel);
+  }
+
+  if (startOverButton) {
+    startOverButton.addEventListener("click", startOver);
+  }
+
+  if (inviteButton) {
+    inviteButton.addEventListener("click", inviteFriends);
+  }
+
+  if (nextLevelButton) {
+    nextLevelButton.addEventListener("click", goToNextLevel);
+  }
+
+  if (playAgainButton) {
+    playAgainButton.addEventListener("click", playAgain);
+  }
+
+  // Support an additional resume button in the pause overlay.
+  $all("[data-action='resume']").forEach((button) => {
+    button.addEventListener("click", resumeGame);
+  });
+
+  // Escape key toggles pause while playing.
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && started && !levelFinished) {
+      if (paused) {
+        resumeGame();
+      } else {
+        pauseGame();
+      }
+    }
+  });
+
+  // ---------------- INITIALIZATION ----------------
+
+  function initializeGame() {
+    if (!board) {
+      console.error(
+        "Memory Match couldn't find the game board. Add id='gameBoard' or id='memoryBoard' to your HTML."
+      );
+    }
+
+    started = false;
+    hide(pauseOverlay);
+    hide(levelCompleteOverlay);
+    hide(winOverlay);
+
+    // Display the first level's cards behind the instructions.
+    startLevel(1);
+
+    // The instructions overlay should be visible when the page opens.
+    if (instructionsOverlay) {
+      show(instructionsOverlay);
+    }
+
+    updateStats();
+  }
+
+  initializeGame();
+
+})();
+
+
+/* Designer profile popup */
+const designerLink = document.getElementById("designerLink");
+const designerPopup = document.getElementById("designerPopup");
+const closeDesignerPopup = document.getElementById("closeDesignerPopup");
+
+function openDesignerPopup() {
+  designerPopup.hidden = false;
+  closeDesignerPopup.focus();
+}
+
+function closeDesignerProfile() {
+  designerPopup.hidden = true;
+  designerLink.focus();
+}
+
+designerLink.addEventListener("click", openDesignerPopup);
+closeDesignerPopup.addEventListener("click", closeDesignerProfile);
+
+// Close when clicking the dark backdrop
+designerPopup.addEventListener("click", (event) => {
+  if (event.target === designerPopup) {
+    closeDesignerProfile();
   }
 });
 
-revealButton.addEventListener("click", revealCards);
-
-// Initialize
-activeEmojis = shuffleCards(EMOJI_POOL).slice(0, pairsForLevel(currentLevel));
-updateLevelDisplay();
-restartGame();
+// Close with Escape
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !designerPopup.hidden) {
+    closeDesignerProfile();
+  }
+});
